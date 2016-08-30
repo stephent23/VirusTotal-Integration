@@ -9,7 +9,7 @@ class VirusTotal(object):
         config.read('conf.ini')
         
         # Get the API Key from the config file
-        self.api_key = config.get('Remote_Configuration', 'API_Key')
+        self.apikey = config.get('Remote_Configuration', 'API_Key')
         self.URL_BASE = "https://www.virustotal.com/vtapi/v2/"
         self.HTTP_OK = 200 
 
