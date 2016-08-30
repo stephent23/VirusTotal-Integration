@@ -10,6 +10,11 @@ class VirusTotal(object):
         
         # Get the API Key from the config file
         self.apikey = config.get('Remote_Configuration', 'API_Key')
+
+        # Get the preferencial detection engines
+        self.files_detection_engine_preference = config.get('User_Preferences', 'Files_Detection_Engine_Preference')
+        self.network_detection_engine_preference = config.get('User_Preferences', 'Network_Detection_Engine_Preference')
+
         self.URL_BASE = "https://www.virustotal.com/vtapi/v2/"
         self.HTTP_OK = 200 
 
