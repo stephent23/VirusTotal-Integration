@@ -1,3 +1,4 @@
+import argparse
 import configparser
 import requests
 import json
@@ -64,12 +65,22 @@ def write_to_csv(json_data):
         csv_writer.writerow(row)  
 
 
+# Get command line arguments
+parser = argparse.ArgumentParser(prog="Virus Total API")
+parser.add_argument('-u', '--url', help='The URL that you would like to receive the report for.')
+args = parser.parse_args()
+
+
 # Define the configuration file
 config = configparser.ConfigParser()
 config.read('conf.ini')
 
 # Establish VT 
 vt = VirusTotal()
-report = vt.retrieve_domain_report('http://google.com')
-dump_to_jsonfile(report)
-write_to_csv(report)
+if(args.url):
+    report = vt.retrieve_domain_report(args.url)
+    print(report)
+else:
+    report = vt.retrieve_domain_report('http://google.com')
+    dump_to_jsonfile(report)
+    write_to_csv(report)
