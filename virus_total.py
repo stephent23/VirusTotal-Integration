@@ -40,6 +40,38 @@ class VirusTotal(object):
             return result
 
 
+def control_output(json_data, csv_required, dump_required):
+    print(csv_required)
+    print(dump_required)
+    if(csv_required):
+        write_to_csv(json_data)
+    
+    if(dump_required): 
+        dump_to_jsonfile(json_data)
+
+    if(not(csv_required) and not(dump_required)):
+        print_to_terminal(json_data)
+
+# This should be refactored
+def print_to_terminal(json_data):
+    # Get the useful fields
+    url = json_data['url']
+    scandate = json_data['scan_date']
+    positives = json_data['positives']
+    total_engines = json_data['total']
+    selected_engine = vt.network_detection_engine_preference
+    selected_detected = json_data['scans'][vt.network_detection_engine_preference]['detected']
+    selected_result = json_data['scans'][vt.network_detection_engine_preference]['result']
+
+    print("")
+    print("URL: " + url)
+    print("Scan Date: " + scandate)
+    print("Detection Rate: " + str(positives) + "/" + str(total_engines))
+    print(selected_engine + ": ")
+    print("     Detected: " + str(selected_detected))
+    print("     Result: " + str(selected_result))
+    print("")
+
 def dump_to_jsonfile(json_data):
     filepath = config.get('Output_Files', 'Output_JSON')
     with open(filepath, mode='a') as output_file: 
@@ -67,7 +99,14 @@ def write_to_csv(json_data):
 
 # Get command line arguments
 parser = argparse.ArgumentParser(prog="Virus Total API")
-parser.add_argument('-u', '--url', help='The URL that you would like to receive the report for.')
+
+parser.add_argument("--csv", help="Sends some output to a CSV file.", action="store_true")
+parser.add_argument("--dump", help="Dumps the full VirusTotal output to a json file.", action="store_true")
+# Either pass a single url on the command line or provide a path to a CSV.
+inputformat = parser.add_mutually_exclusive_group(required=True)
+inputformat.add_argument("--url", help="The URL that you would like to receive the report for.")
+inputformat.add_argument("--list", help="This can be used to point the script at a file which contains a list of URLs that need to be searched.")
+
 args = parser.parse_args()
 
 
@@ -79,8 +118,11 @@ config.read('conf.ini')
 vt = VirusTotal()
 if(args.url):
     report = vt.retrieve_domain_report(args.url)
-    print(report)
-else:
-    report = vt.retrieve_domain_report('http://google.com')
-    dump_to_jsonfile(report)
-    write_to_csv(report)
+    print_to_terminal(report)
+elif (args.list):
+    with open(args.list, mode='a') as input_file:
+        list_of_urls = input_file.readlines()
+        for url in list_of_urls:
+            report = vt.retrieve_domain_report(url)
+            print(str(args.csv))
+            control_output(report, args.csv, args.dump)
