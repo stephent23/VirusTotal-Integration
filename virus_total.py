@@ -100,8 +100,8 @@ def write_to_csv(json_data):
 # Get command line arguments
 parser = argparse.ArgumentParser(prog="Virus Total API")
 
-parser.add_argument("--csv", help="Sends some output to a CSV file.", action="store_true")
-parser.add_argument("--dump", help="Dumps the full VirusTotal output to a json file.", action="store_true")
+parser.add_argument("--csv", help="Sends some output to a CSV file.", action='store_true')
+parser.add_argument("--dump", help="Dumps the full VirusTotal output to a json file.", action='store_true')
 # Either pass a single url on the command line or provide a path to a CSV.
 inputformat = parser.add_mutually_exclusive_group(required=True)
 inputformat.add_argument("--url", help="The URL that you would like to receive the report for.")
