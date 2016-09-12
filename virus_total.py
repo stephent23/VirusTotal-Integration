@@ -20,14 +20,17 @@ class VirusTotal(object):
         # Is it a public API Key
         self.is_public_apikey = True
 
+        # Domains that scans have been requested for
+        self.requested_domain_scans = []
+
     def scan_domain(self, domain):
         url = self.URL_BASE + 'url/scan'
 
         params = {'apikey': self.apikey, 'url': domain}
         result = requests.post(url, data = params)
-        
+
         if result.status_code == self.HTTP_OK:
-            print('Domain scan requested.')
+            self.requested_domain_scans.append(domain)
 
     def retrieve_domain_report(self, domain):
         url = self.URL_BASE + 'url/report'
@@ -37,12 +40,23 @@ class VirusTotal(object):
 
         if result.status_code == self.HTTP_OK:
             result = json.loads(result.text)
-            return result
+            if self.check_report_available(result) == True:
+                return result
+            else:
+                self.scan_domain(domain)
+                return False
+
+    def check_report_available(self, json_data):
+        if(json_data['response_code'] == 0):
+            return False
+        else:
+            return True
+
+    def get_requested_domain_scans(self):
+        return self.requested_domain_scans
 
 
 def control_output(json_data, csv_required, dump_required):
-    print(csv_required)
-    print(dump_required)
     if(csv_required):
         write_to_csv(json_data)
     
@@ -109,7 +123,6 @@ inputformat.add_argument("--list", help="This can be used to point the script at
 
 args = parser.parse_args()
 
-
 # Define the configuration file
 config = configparser.ConfigParser()
 config.read('conf.ini')
@@ -120,9 +133,12 @@ if(args.url):
     report = vt.retrieve_domain_report(args.url)
     print_to_terminal(report)
 elif (args.list):
-    with open(args.list, mode='a') as input_file:
+    with open(args.list, mode='r') as input_file:
         list_of_urls = input_file.readlines()
         for url in list_of_urls:
             report = vt.retrieve_domain_report(url)
-            print(str(args.csv))
-            control_output(report, args.csv, args.dump)
+            if report != False:
+                control_output(report, args.csv, args.dump)
+
+# May want to output this to CSV or something similar 
+print(str(vt.get_requested_domain_scans()))
