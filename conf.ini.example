@@ -1,0 +1,16 @@
+[Remote_Configuration]
+API_Key: 
+
+[Proxy_Configuration]
+; This should be set to either True or False
+Use_Proxy: False
+Address: 
+Port: 
+Username:
+Password:
+
+[User_Preferences]
+Files_Detection_Engine_Preference: 
+Network_Detection_Engine_Preference:
+Output_JSON: result.json
+Output_CSV: result.csv
