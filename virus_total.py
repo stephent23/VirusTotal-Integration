@@ -1,6 +1,8 @@
 import argparse
 import configparser
 import requests
+from datetime import datetime
+import time
 import json
 import csv
 
@@ -45,6 +47,21 @@ class VirusTotal(object):
             else:
                 self.scan_domain(domain)
                 return False
+
+    def scan_and_retrieve_domain_report(self, domain):
+        count = 0 
+        self.scan_domain(domain)
+        # Retrieve report
+        report = self.retrieve_domain_report(domain)
+        # If scan time of report is not today, then sleep and retrieve report again
+        while datetime.strptime(report['scan_date'], "%Y-%m-%d %H:%M:%S").date() < datetime.today().date():
+            if count > 5:
+                return False
+            print("Report not yet available. Waiting and trying again... (Try " + count + "/5)")
+            count += 1
+            time.sleep(15)
+            report = self.retrieve_domain_report(domain)
+        return report
 
     def check_report_available(self, json_data):
         if(json_data['response_code'] == 0):
@@ -131,6 +148,7 @@ parser = argparse.ArgumentParser(prog="Virus Total API")
 
 parser.add_argument("--csv", help="Sends some output to a CSV file.", action='store_true')
 parser.add_argument("--dump", help="Dumps the full VirusTotal output to a json file.", action='store_true')
+parser.add_argument("--scan", help="Defines whether the domains should be scanned , otherwise the latest report will be retrieved.", action='store_true')
 # Either pass a single url on the command line or provide a path to a CSV.
 inputformat = parser.add_mutually_exclusive_group(required=True)
 inputformat.add_argument("--url", help="The URL that you would like to receive the report for.")
@@ -147,9 +165,18 @@ proxies = set_proxy_config()
 
 # Establish VT 
 vt = VirusTotal()
+
+### URL GIVEN ON COMMAND LINE
 if(args.url):
-    report = vt.retrieve_domain_report(args.url)
+    # Scan requested
+    if(args.scan):
+        report = vt.scan_and_retrieve_domain_report(args.url)
+    else:
+        report = vt.retrieve_domain_report(args.url)
+    # print report 
     print_to_terminal(report)
+
+### LIST OF URLs GIVEN IN FILE
 elif (args.list):
     with open(args.list, mode='r') as input_file:
         list_of_urls = input_file.readlines()
