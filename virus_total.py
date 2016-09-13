@@ -171,6 +171,9 @@ if(args.url):
     # Scan requested
     if(args.scan):
         report = vt.scan_and_retrieve_domain_report(args.url)
+        if report == False:
+            print("Report unavailable at this time. Try again later.")#
+            sys.exit(0)
     else:
         report = vt.retrieve_domain_report(args.url)
     # print report 
