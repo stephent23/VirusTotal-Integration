@@ -27,7 +27,7 @@ class VirusTotal(object):
         url = self.URL_BASE + 'url/scan'
 
         params = {'apikey': self.apikey, 'url': domain}
-        result = requests.post(url, data = params)
+        result = requests.post(url, data=params, proxies=proxies)
 
         if result.status_code == self.HTTP_OK:
             self.requested_domain_scans.append(domain)
@@ -36,7 +36,7 @@ class VirusTotal(object):
         url = self.URL_BASE + 'url/report'
 
         params = {'apikey': self.apikey, 'resource': domain}
-        result = requests.post(url, data=params)
+        result = requests.post(url, data=params, proxies=proxies)
 
         if result.status_code == self.HTTP_OK:
             result = json.loads(result.text)
@@ -55,6 +55,21 @@ class VirusTotal(object):
     def get_requested_domain_scans(self):
         return self.requested_domain_scans
 
+def set_proxy_config():
+    proxy_config = {}
+    proxies = None
+    # Check if we should use a proxy
+    if config.get('Proxy_Configuration', 'Use_Proxy') == 'True':
+        # Get the proxy config
+        proxy_config['address'] = config.get('Proxy_Configuration', 'Address')
+        proxy_config['port'] = config.get('Proxy_Configuration', 'Port')
+        proxy_config['user'] = config.get('Proxy_Configuration', 'Username')
+        proxy_config['password'] = config.get('Proxy_Configuration', 'Password')
+        proxies = {'https': 'http://' + proxy_config['user'] + ':' + proxy_config['password'] + '@' + proxy_config['address'] + ':' + proxy_config['port']}
+    else:
+        proxies = None
+
+    return proxies
 
 def control_output(json_data, csv_required, dump_required):
     if(csv_required):
@@ -126,6 +141,9 @@ args = parser.parse_args()
 # Define the configuration file
 config = configparser.ConfigParser()
 config.read('conf.ini')
+
+# Check and set proxy config
+proxies = set_proxy_config()
 
 # Establish VT 
 vt = VirusTotal()
