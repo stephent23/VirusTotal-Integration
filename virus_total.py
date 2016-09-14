@@ -8,7 +8,7 @@ import csv
 
 
 class VirusTotal(object):
-    def __init__(self):        
+    def __init__(self):
         # Get the API Key from the config file
         self.apikey = config.get('Remote_Configuration', 'API_Key')
 
@@ -17,7 +17,7 @@ class VirusTotal(object):
         self.network_detection_engine_preference = config.get('User_Preferences', 'Network_Detection_Engine_Preference')
 
         self.URL_BASE = "https://www.virustotal.com/vtapi/v2/"
-        self.HTTP_OK = 200 
+        self.HTTP_OK = 200
 
         # Is it a public API Key
         self.is_public_apikey = True
@@ -32,7 +32,9 @@ class VirusTotal(object):
         result = requests.post(url, data=params, proxies=proxies)
 
         if result.status_code == self.HTTP_OK:
-            self.requested_domain_scans.append(domain)
+            return True
+        else:
+            return False
 
     def retrieve_domain_report(self, domain):
         url = self.URL_BASE + 'url/report'
@@ -49,13 +51,14 @@ class VirusTotal(object):
                 return False
 
     def scan_and_retrieve_domain_report(self, domain):
-        count = 0 
+        count = 0
         self.scan_domain(domain)
         # Retrieve report
         report = self.retrieve_domain_report(domain)
         # If scan time of report is not today, then sleep and retrieve report again
         while datetime.strptime(report['scan_date'], "%Y-%m-%d %H:%M:%S").date() < datetime.today().date():
             if count > 5:
+                self.requested_domain_scans.append(domain)
                 return False
             print("Report not yet available. Waiting and trying again... (Try " + count + "/5)")
             count += 1
@@ -91,8 +94,8 @@ def set_proxy_config():
 def control_output(json_data, csv_required, dump_required):
     if(csv_required):
         write_to_csv(json_data)
-    
-    if(dump_required): 
+
+    if(dump_required):
         dump_to_jsonfile(json_data)
 
     if(not(csv_required) and not(dump_required)):
@@ -120,7 +123,7 @@ def print_to_terminal(json_data):
 
 def dump_to_jsonfile(json_data):
     filepath = config.get('Output_Files', 'Output_JSON')
-    with open(filepath, mode='a') as output_file: 
+    with open(filepath, mode='a') as output_file:
         json.dump(json_data, output_file, indent=4, sort_keys=True)
 
 def write_to_csv(json_data):
@@ -136,11 +139,11 @@ def write_to_csv(json_data):
     # build csv row
     row = [url, scandate, positives, total_engines, selected_engine, selected_detected, selected_result]
 
-    # CSV to write to 
+    # CSV to write to
     filepath = config.get('Output_Files', 'Output_CSV')
     with open(filepath, mode='a') as output_file:
         csv_writer = csv.writer(output_file)
-        csv_writer.writerow(row)  
+        csv_writer.writerow(row)
 
 
 # Get command line arguments
@@ -163,7 +166,7 @@ config.read('conf.ini')
 # Check and set proxy config
 proxies = set_proxy_config()
 
-# Establish VT 
+# Establish VT
 vt = VirusTotal()
 
 ### URL GIVEN ON COMMAND LINE
@@ -172,11 +175,11 @@ if(args.url):
     if(args.scan):
         report = vt.scan_and_retrieve_domain_report(args.url)
         if report == False:
-            print("Report unavailable at this time. Try again later.")#
+            print("Report unavailable at this time. Try again later.")
             sys.exit(0)
     else:
         report = vt.retrieve_domain_report(args.url)
-    # print report 
+    # print report
     print_to_terminal(report)
 
 ### LIST OF URLs GIVEN IN FILE
@@ -188,5 +191,5 @@ elif (args.list):
             if report != False:
                 control_output(report, args.csv, args.dump)
 
-# May want to output this to CSV or something similar 
+# May want to output this to CSV or something similar
 print(str(vt.get_requested_domain_scans()))
