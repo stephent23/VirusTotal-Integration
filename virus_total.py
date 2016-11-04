@@ -22,8 +22,6 @@ class VirusTotal(object):
         # Is it a public API Key
         self.is_public_apikey = True
 
-        # Domains that scans have been requested for
-        self.requested_domain_scans = []
 
     def scan_domain(self, domain):
         url = self.URL_BASE + 'url/scan'
@@ -44,26 +42,28 @@ class VirusTotal(object):
 
         if result.status_code == self.HTTP_OK:
             result = json.loads(result.text)
-            if self.check_report_available(result) == True:
+            if self.check_report_available(result):
                 return result
             else:
-                self.scan_domain(domain)
                 return False
 
     def scan_and_retrieve_domain_report(self, domain):
-        count = 0
+        count = 1
         self.scan_domain(domain)
+        print("Scanning...")
+        time.sleep(15)
         # Retrieve report
         report = self.retrieve_domain_report(domain)
+
         # If scan time of report is not today, then sleep and retrieve report again
-        while datetime.strptime(report['scan_date'], "%Y-%m-%d %H:%M:%S").date() < datetime.today().date():
+        while report==False or datetime.strptime(report['scan_date'], "%Y-%m-%d %H:%M:%S").date() < datetime.today().date() or report==None:
             if count > 5:
-                self.requested_domain_scans.append(domain)
                 return False
-            print("Report not yet available. Waiting and trying again... (Try " + count + "/5)")
-            count += 1
-            time.sleep(15)
-            report = self.retrieve_domain_report(domain)
+            else:
+                print("Report not yet available. Waiting and trying again... (Try " + str(count) + "/5)")
+                count += 1
+                time.sleep(15)
+                report = self.retrieve_domain_report(domain)
         return report
 
     def check_report_available(self, json_data):
@@ -72,8 +72,6 @@ class VirusTotal(object):
         else:
             return True
 
-    def get_requested_domain_scans(self):
-        return self.requested_domain_scans
 
 def set_proxy_config():
     proxy_config = {}
@@ -90,6 +88,11 @@ def set_proxy_config():
         proxies = None
 
     return proxies
+
+def get_urls_from_file():
+    """ Returns a list of URLs that are read in from a file. """
+    with open(args.list, mode='r') as input_file:
+        return input_file.readlines()
 
 def control_output(json_data, csv_required, dump_required):
     if(csv_required):
@@ -109,8 +112,19 @@ def print_to_terminal(json_data):
     positives = json_data['positives']
     total_engines = json_data['total']
     selected_engine = vt.network_detection_engine_preference
-    selected_detected = json_data['scans'][vt.network_detection_engine_preference]['detected']
-    selected_result = json_data['scans'][vt.network_detection_engine_preference]['result']
+
+    # The selected detection engine will not always be available, catching that error.
+    selected_detected = None
+    try:
+        selected_detected = json_data['scans'][vt.network_detection_engine_preference]['detected']
+    except KeyError:
+        selected_detected = str(vt.network_detection_engine_preference) + ": N/A"
+
+    selected_result = None
+    try: 
+        selected_result = json_data['scans'][vt.network_detection_engine_preference]['result']
+    except KeyError:
+        selected_result = str(vt.network_detection_engine_preference) + ": N/A"
 
     print("")
     print("URL: " + url)
@@ -140,7 +154,7 @@ def write_to_csv(json_data):
     row = [url, scandate, positives, total_engines, selected_engine, selected_detected, selected_result]
 
     # CSV to write to
-    filepath = config.get('Output_Files', 'Output_CSV')
+    filepath = config.get('User_Preferences', 'Output_CSV')
     with open(filepath, mode='a') as output_file:
         csv_writer = csv.writer(output_file)
         csv_writer.writerow(row)
@@ -149,13 +163,14 @@ def write_to_csv(json_data):
 # Get command line arguments
 parser = argparse.ArgumentParser(prog="Virus Total API")
 
+# Either pass a single url on the command line or provide a path to a CSV.
+inputformat = parser.add_mutually_exclusive_group(required=True)
+inputformat.add_argument("--url", help="The URL that you would like to receive the report for. Using this parameter, will print the results to the command line.")
+inputformat.add_argument("--list", help="This can be used to point the script at a file which contains a list of URLs that need to be searched.")
+
 parser.add_argument("--csv", help="Sends some output to a CSV file.", action='store_true')
 parser.add_argument("--dump", help="Dumps the full VirusTotal output to a json file.", action='store_true')
 parser.add_argument("--scan", help="Defines whether the domains should be scanned , otherwise the latest report will be retrieved.", action='store_true')
-# Either pass a single url on the command line or provide a path to a CSV.
-inputformat = parser.add_mutually_exclusive_group(required=True)
-inputformat.add_argument("--url", help="The URL that you would like to receive the report for.")
-inputformat.add_argument("--list", help="This can be used to point the script at a file which contains a list of URLs that need to be searched.")
 
 args = parser.parse_args()
 
@@ -176,20 +191,37 @@ if(args.url):
         report = vt.scan_and_retrieve_domain_report(args.url)
         if report == False:
             print("Report unavailable at this time. Try again later.")
-            sys.exit(0)
+        else:
+            print_to_terminal(report)
     else:
         report = vt.retrieve_domain_report(args.url)
-    # print report
-    print_to_terminal(report)
+        if report == False:
+            print("Report unavailable at this time. Try again using the --scan parameter.")
+        else: 
+            print_to_terminal(report)
 
 ### LIST OF URLs GIVEN IN FILE
 elif (args.list):
-    with open(args.list, mode='r') as input_file:
-        list_of_urls = input_file.readlines()
-        for url in list_of_urls:
-            report = vt.retrieve_domain_report(url)
-            if report != False:
-                control_output(report, args.csv, args.dump)
+    ## SETUP
+    list_of_urls = get_urls_from_file()
+    # List to hold the domains that have been scanned as no report existed
+    urls_pending_report = []
 
-# May want to output this to CSV or something similar
-print(str(vt.get_requested_domain_scans()))
+    for url in list_of_urls:
+        report = vt.retrieve_domain_report(url)
+        time.sleep(15)
+        if report != False:
+            control_output(report, args.csv, args.dump)
+        else:
+            vt.scan_domain(url)
+            urls_pending_report.append(url)
+            sleep(15)
+
+    # Once all of the domains have been submitted, go back through the pending domains
+    for url in urls_pending_report:
+        report = vt.retrieve_domain_report(url)
+        time.sleep(15)
+        if report != False:
+            control_output(report, args.csv, args.dump)
+        else:
+            print("Unable to generate report for: " + url)
