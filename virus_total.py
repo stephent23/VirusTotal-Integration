@@ -147,8 +147,19 @@ def write_to_csv(json_data):
     positives = json_data['positives']
     total_engines = json_data['total']
     selected_engine = vt.network_detection_engine_preference
-    selected_detected = json_data['scans'][vt.network_detection_engine_preference]['detected']
-    selected_result = json_data['scans'][vt.network_detection_engine_preference]['result']
+
+    # The selected detection engine will not always be available, catching that error.
+    selected_detected = None
+    try:
+        selected_detected = json_data['scans'][vt.network_detection_engine_preference]['detected']
+    except KeyError:
+        selected_detected = str(vt.network_detection_engine_preference) + ": N/A"
+
+    selected_result = None
+    try: 
+        selected_result = json_data['scans'][vt.network_detection_engine_preference]['result']
+    except KeyError:
+        selected_result = str(vt.network_detection_engine_preference) + ": N/A"
 
     # build csv row
     row = [url, scandate, positives, total_engines, selected_engine, selected_detected, selected_result]
@@ -215,7 +226,7 @@ elif (args.list):
         else:
             vt.scan_domain(url)
             urls_pending_report.append(url)
-            sleep(15)
+            time.sleep(15)
 
     # Once all of the domains have been submitted, go back through the pending domains
     for url in urls_pending_report:
